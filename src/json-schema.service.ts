@@ -1,5 +1,3 @@
-//json-schema-service/src/json-schema.service.ts
-
 import Ajv, { JSONSchemaType } from 'ajv';
 import {
   JsonSchemaPropertyOptions,
@@ -7,11 +5,23 @@ import {
   SCHEMA_PROPERTY_METADATA_KEY,
 } from './json-schema.decorators';
 
-type JsonSchema = Record<string, unknown>;
+/**
+ * Represents a JSON schema as a key-value map.
+ */
+export type JsonSchema = Record<string, unknown>;
 
+/**
+ * Service for creating and validating JSON schemas from TypeScript classes.
+ */
 export class JsonSchemaService {
   private ajv = new Ajv();
 
+  /**
+   * Creates a JSON schema from a given TypeScript class reference.
+   * 
+   * @param {any} ClassRef - The TypeScript class reference.
+   * @returns {JsonSchema} - The generated JSON schema.
+   */
   createJsonSchema(ClassRef: any): JsonSchema {
     if (ClassRef === String) {
       return { type: 'string' };
@@ -29,29 +39,27 @@ export class JsonSchemaService {
       return { oneOf: ClassRef.map(cr => this.createJsonSchema(cr)) }
     }
     const schema: JsonSchema = { type: 'object' };
-    const classOptions = Reflect.getMetadata(
-      SCHEMA_OBJECT_METADATA_KEY,
-      ClassRef,
-    );
+    const classOptions = Reflect.getMetadata(SCHEMA_OBJECT_METADATA_KEY, ClassRef);
     if (classOptions && classOptions.description) {
       schema.description = classOptions.description;
     }
-    const properties = Reflect.getMetadata(
-      SCHEMA_PROPERTY_METADATA_KEY,
-      ClassRef.prototype,
-    );
+    const properties = Reflect.getMetadata(SCHEMA_PROPERTY_METADATA_KEY, ClassRef.prototype);
     Object.keys(properties).forEach((propertyKey) => {
-      const type = Reflect.getMetadata(
-        'design:type',
-        ClassRef.prototype,
-        propertyKey,
-      );
+      const type = Reflect.getMetadata('design:type', ClassRef.prototype, propertyKey);
       const options = properties[propertyKey];
       this.addPropertyToJsonSchema(schema, propertyKey, type, options);
     });
     return schema;
   }
 
+  /**
+   * Adds a property to an existing JSON schema.
+   * 
+   * @param {JsonSchema} schema - The JSON schema to modify.
+   * @param {string} propertyName - The name of the property to add.
+   * @param {any} type - The TypeScript type of the property.
+   * @param {JsonSchemaPropertyOptions} [options] - Additional options for the property.
+   */
   addPropertyToJsonSchema(
     schema: JsonSchema,
     propertyName: string,
@@ -85,12 +93,27 @@ export class JsonSchemaService {
     (schema.properties as Record<string, JsonSchema>)[propertyName] = property;
   }
 
+  /**
+   * Validates data against a given JSON schema.
+   * 
+   * @param {JsonSchema} schema - The JSON schema to validate against.
+   * @param {any} data - The data to validate.
+   * @returns {{ valid: boolean, errors?: any }} - Validation result and errors if invalid.
+   */
   validate(schema: JsonSchema, data: any): { valid: boolean, errors?: any } {
     const validate = this.ajv.compile(schema as JSONSchemaType<any>);
     const valid = validate(data);
     return { valid, errors: validate.errors };
   }
 
+  /**
+   * Navigates to a specified path within a JSON schema.
+   * 
+   * @param {JsonSchema} schema - The JSON schema to navigate.
+   * @param {string[]} path - The path to navigate within the schema.
+   * @returns {JsonSchema} - The schema at the specified path.
+   * @private
+   */
   private navigateToPath(schema: JsonSchema, path: string[]): JsonSchema {
     let current: any = schema;
     for (const segment of path) {
@@ -105,6 +128,12 @@ export class JsonSchemaService {
     return current;
   }
 
+  /**
+   * Initializes the `oneOf` property for a JSON schema.
+   * 
+   * @param {JsonSchema} property - The property to initialize.
+   * @private
+   */
   private initializeOneOfProperty(property: JsonSchema) {
     if (!Array.isArray(property.oneOf)) {
       property.oneOf = [];
@@ -115,33 +144,4 @@ export class JsonSchemaService {
     }
   }
 
-  addTypeOneOf(
-    schema: JsonSchema,
-    path: string[],
-    newClassRef: any
-  ): JsonSchema {
-    if (path.length === 0) {
-      throw new Error('Path cannot be empty');
-    }
-
-    const lastSegment = path.pop();
-    if (!lastSegment) {
-      throw new Error('Invalid path');
-    }
-
-    const parent = this.navigateToPath(schema, path);
-
-    if (!parent.properties) {
-      parent.properties = {};
-    }
-
-    if (!(parent.properties as any)[lastSegment]) {
-      (parent.properties as any)[lastSegment] = this.createJsonSchema(newClassRef);
-    } else {
-      this.initializeOneOfProperty((parent.properties as any)[lastSegment]);
-      (parent.properties as any)[lastSegment].oneOf.push(this.createJsonSchema(newClassRef));
-    }
-
-    return schema;
-  }
 }
