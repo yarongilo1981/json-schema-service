@@ -1,6 +1,6 @@
 {
   "name": "json-schema-service",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "handling typescript types <-> json schemas by decorators or declarative",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
