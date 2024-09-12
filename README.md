@@ -11,6 +11,10 @@ Install the package via npm:
 npm install json-schema-service
 \`\`\`
 
+## Documentation
+
+You can find the full documentation [here](https://yarongilo1981.github.io/json-schema-service/).
+
 ## Usage
 
 ### Defining Schemas
